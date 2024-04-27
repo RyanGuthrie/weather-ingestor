@@ -6,13 +6,28 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+	"weather-ingestor/domain/temperature"
 	"weather-ingestor/domain/uom"
+	"weather-ingestor/domain/weather_time"
 )
 
-type Instance struct {
+type gridPoint struct {
+	gridX int
+	gridY int
+}
+
+func (g gridPoint) AsEscaped() string {
+	return url.QueryEscape(fmt.Sprintf("%d,%d", g.gridX, g.gridY))
+}
+
+// queryValues are the values used to query an Instance of a GridPoint and not part of the actual hydrated response
+type queryValues struct {
 	gridID string
-	gridX  int
-	gridY  int
+	point  gridPoint
+}
+
+type Instance struct {
+	queryValues
 
 	Context  []any  `json:"@context"`
 	Id       string `json:"id"`
@@ -22,112 +37,76 @@ type Instance struct {
 		Coordinates [][][]float64 `json:"coordinates"`
 	} `json:"geometry"`
 	Properties struct {
-		Id         string    `json:"@id"`
-		Type       string    `json:"@type"`
-		UpdateTime time.Time `json:"updateTime"`
-		ValidTimes string    `json:"validTimes"`
+		Id         string                   `json:"@id"`
+		Type       string                   `json:"@type"`
+		UpdateTime time.Time                `json:"updateTime"`
+		ValidTimes weather_time.WeatherTime `json:"validTimes"`
 		Elevation  struct {
 			UnitCode string  `json:"unitCode"`
 			Value    float64 `json:"value"`
 		} `json:"elevation"`
-		ForecastOffice string `json:"forecastOffice"`
-		GridId         string `json:"gridId"`
-		GridX          string `json:"gridX"`
-		GridY          string `json:"gridY"`
-		Temperature    struct {
+		ForecastOffice string                   `json:"forecastOffice"`
+		GridId         string                   `json:"gridId"`
+		GridX          string                   `json:"gridX"`
+		GridY          string                   `json:"gridY"`
+		Temperature    temperature.Temperatures `json:"temperature"`
+		Dewpoint       struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string  `json:"validTime"`
-				Value     float64 `json:"value"`
-			} `json:"values"`
-		} `json:"temperature"`
-		Dewpoint struct {
-			Uom    uom.UOM `json:"uom"`
-			Values []struct {
-				ValidTime string  `json:"validTime"`
-				Value     float64 `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"dewpoint"`
-		MaxTemperature struct {
-			Uom    uom.UOM `json:"uom"`
-			Values []struct {
-				ValidTime string  `json:"validTime"`
-				Value     float64 `json:"value"`
-			} `json:"values"`
-		} `json:"maxTemperature"`
-		MinTemperature struct {
-			Uom    uom.UOM `json:"uom"`
-			Values []struct {
-				ValidTime string  `json:"validTime"`
-				Value     float64 `json:"value"`
-			} `json:"values"`
-		} `json:"minTemperature"`
+		MaxTemperature   temperature.Temperatures `json:"maxTemperature"`
+		MinTemperature   temperature.Temperatures `json:"minTemperature"`
 		RelativeHumidity struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string `json:"validTime"`
-				Value     int    `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     int                      `json:"value"`
 			} `json:"values"`
 		} `json:"relativeHumidity"`
-		ApparentTemperature struct {
+		ApparentTemperature     temperature.Temperatures `json:"apparentTemperature"`
+		WetBulbGlobeTemperature temperature.Temperatures `json:"wetBulbGlobeTemperature"`
+		HeatIndex               struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string  `json:"validTime"`
-				Value     float64 `json:"value"`
-			} `json:"values"`
-		} `json:"apparentTemperature"`
-		WetBulbGlobeTemperature struct {
-			Uom    uom.UOM `json:"uom"`
-			Values []struct {
-				ValidTime string  `json:"validTime"`
-				Value     float64 `json:"value"`
-			} `json:"values"`
-		} `json:"wetBulbGlobeTemperature"`
-		HeatIndex struct {
-			Uom    uom.UOM `json:"uom"`
-			Values []struct {
-				ValidTime string   `json:"validTime"`
-				Value     *float64 `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     *float64                 `json:"value"`
 			} `json:"values"`
 		} `json:"heatIndex"`
-		WindChill struct {
+		WindChill temperature.Temperatures `json:"windChill"`
+		SkyCover  struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string   `json:"validTime"`
-				Value     *float64 `json:"value"`
-			} `json:"values"`
-		} `json:"windChill"`
-		SkyCover struct {
-			Uom    uom.UOM `json:"uom"`
-			Values []struct {
-				ValidTime string `json:"validTime"`
-				Value     int    `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     int                      `json:"value"`
 			} `json:"values"`
 		} `json:"skyCover"`
 		WindDirection struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string `json:"validTime"`
-				Value     int    `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     int                      `json:"value"`
 			} `json:"values"`
 		} `json:"windDirection"`
 		WindSpeed struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string  `json:"validTime"`
-				Value     float64 `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"windSpeed"`
 		WindGust struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string  `json:"validTime"`
-				Value     float64 `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"windGust"`
 		Weather struct {
 			Values []struct {
-				ValidTime string `json:"validTime"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
 				Value     []struct {
 					Coverage   *string `json:"coverage"`
 					Weather    *string `json:"weather"`
@@ -146,83 +125,83 @@ type Instance struct {
 		ProbabilityOfPrecipitation struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string `json:"validTime"`
-				Value     int    `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"probabilityOfPrecipitation"`
 		QuantitativePrecipitation struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string  `json:"validTime"`
-				Value     float64 `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"quantitativePrecipitation"`
 		IceAccumulation struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string `json:"validTime"`
-				Value     int    `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"iceAccumulation"`
 		SnowfallAmount struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string `json:"validTime"`
-				Value     int    `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"snowfallAmount"`
 		SnowLevel struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string  `json:"validTime"`
-				Value     float64 `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"snowLevel"`
 		CeilingHeight struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string  `json:"validTime"`
-				Value     float64 `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"ceilingHeight"`
 		Visibility struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string  `json:"validTime"`
-				Value     float64 `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"visibility"`
 		TransportWindSpeed struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string  `json:"validTime"`
-				Value     float64 `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"transportWindSpeed"`
 		TransportWindDirection struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string `json:"validTime"`
-				Value     int    `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"transportWindDirection"`
 		MixingHeight struct {
 			Uom    uom.UOM `json:"uom"`
 			Values []struct {
-				ValidTime string  `json:"validTime"`
-				Value     float64 `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"mixingHeight"`
 		HainesIndex struct {
 			Values []struct {
-				ValidTime string `json:"validTime"`
-				Value     int    `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"hainesIndex"`
 		LightningActivityLevel struct {
 			Values []struct {
-				ValidTime string `json:"validTime"`
-				Value     int    `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"lightningActivityLevel"`
 		TwentyFootWindSpeed struct {
@@ -302,8 +281,8 @@ type Instance struct {
 		} `json:"grasslandFireDangerIndex"`
 		ProbabilityOfThunder struct {
 			Values []struct {
-				ValidTime string `json:"validTime"`
-				Value     int    `json:"value"`
+				ValidTime weather_time.WeatherTime `json:"validTime"`
+				Value     float64                  `json:"value"`
 			} `json:"values"`
 		} `json:"probabilityOfThunder"`
 		DavisStabilityIndex struct {
@@ -326,9 +305,13 @@ type Instance struct {
 
 func New(gridID string, gridX, gridY int) (*Instance, error) {
 	instance := Instance{
-		gridID: gridID,
-		gridX:  gridX,
-		gridY:  gridY,
+		queryValues: queryValues{
+			gridID: gridID,
+			point: gridPoint{
+				gridX: gridX,
+				gridY: gridY,
+			},
+		},
 	}
 
 	return instance.get()
@@ -350,5 +333,5 @@ func (o *Instance) get() (*Instance, error) {
 }
 
 func (o *Instance) url() string {
-	return fmt.Sprintf("https://api.weather.gov/gridpoints/%s/%s", o.gridID, url.QueryEscape(fmt.Sprintf("%d,%d", o.gridX, o.gridY)))
+	return fmt.Sprintf("https://api.weather.gov/gridpoints/%s/%s", o.gridID, o.point.AsEscaped())
 }

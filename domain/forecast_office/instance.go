@@ -6,8 +6,12 @@ import (
 	"net/http"
 )
 
-type Instance struct {
+type queryValues struct {
 	ForecastOfficeName Name
+}
+
+type Instance struct {
+	queryValues
 
 	Context struct {
 		Version string `json:"@version"`
@@ -38,7 +42,9 @@ type Instance struct {
 
 func New(name Name) (*Instance, error) {
 	instance := Instance{
-		ForecastOfficeName: name,
+		queryValues: queryValues{
+			ForecastOfficeName: name,
+		},
 	}
 
 	return instance.get()
@@ -46,7 +52,9 @@ func New(name Name) (*Instance, error) {
 
 func NewLazy(name Name) (*Instance, error) {
 	instance := Instance{
-		ForecastOfficeName: name,
+		queryValues: queryValues{
+			ForecastOfficeName: name,
+		},
 	}
 
 	return &instance, nil
@@ -68,6 +76,6 @@ func (o *Instance) get() (*Instance, error) {
 }
 
 func (o *Instance) url() string {
-	sprintf := fmt.Sprintf("https://api.weather.gov/offices/%s", o.ForecastOfficeName)
+	sprintf := fmt.Sprintf("https://api.weather.gov/offices/%s", o.queryValues.ForecastOfficeName)
 	return sprintf
 }
